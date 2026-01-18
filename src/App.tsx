@@ -21,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/admin" element={<AdminSaphir />} />
           <Route path="/admin-saphir" element={<AdminSaphir />} />
           <Route path="/mon-espace" element={<MonEspace />} />
           <Route path="/mon-escale/:id" element={<MonEscale />} />
