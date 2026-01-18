@@ -40,12 +40,32 @@ const AdminSaphir = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // --- VÉRIFICATION D'AUTHENTIFICATION ---
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log("❌ Non authentifié - Redirection vers login");
+        navigate("/login");
+        return;
+      }
+      
+      console.log("✅ Authentifié");
+      setIsAuthenticated(true);
+    };
+    
+    checkAuth();
+  }, [navigate]);
 
   // --- CHARGEMENT ---
   useEffect(() => {
+    if (!isAuthenticated) return; // Ne charger que si authentifié
     console.log("🚀 Démarrage du Dashboard...");
     refreshAllData();
-  }, []);
+  }, [isAuthenticated]);
 
   // --- ABONNEMENT AUX CHANGEMENTS EN TEMPS RÉEL ---
   useEffect(() => {
