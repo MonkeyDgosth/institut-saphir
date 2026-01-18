@@ -46,7 +46,7 @@ const Login = () => {
 
       if (data.session) {
         toast.success("Connexion réussie ! Bienvenue.");
-        navigate("/admin-saphir", { replace: true });
+        navigate("/admin", { replace: true });
       }
     } catch (error: any) {
       console.error("Erreur inattendue:", error);
