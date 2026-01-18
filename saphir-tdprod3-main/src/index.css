@@ -1,0 +1,374 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* SAPHIR Luxury Spa Design System */
+    --background: 220 65% 7%;
+    --foreground: 30 20% 95%;
+
+    --card: 220 50% 10%;
+    --card-foreground: 30 20% 95%;
+
+    --popover: 220 50% 8%;
+    --popover-foreground: 30 20% 95%;
+
+    --primary: 19 65% 67%;
+    --primary-foreground: 220 65% 7%;
+
+    --secondary: 250 30% 15%;
+    --secondary-foreground: 30 20% 95%;
+
+    --muted: 220 40% 15%;
+    --muted-foreground: 220 15% 55%;
+
+    --accent: 19 65% 67%;
+    --accent-foreground: 220 65% 7%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 30% 20%;
+    --input: 220 30% 15%;
+    --ring: 19 65% 67%;
+
+    --radius: 1rem;
+
+    /* Glassmorphism */
+    --glass-bg: 0 0% 100% / 0.05;
+    --glass-border: 0 0% 100% / 0.1;
+    --glass-blur: 20px;
+
+    /* Luxury gradients */
+    --gradient-night: linear-gradient(135deg, hsl(220, 65%, 7%) 0%, hsl(250, 45%, 12%) 50%, hsl(220, 60%, 10%) 100%);
+    --gradient-rose: linear-gradient(135deg, hsl(19, 65%, 67%) 0%, hsl(35, 70%, 70%) 100%);
+    --gradient-glow: radial-gradient(ellipse at center, hsl(19 65% 67% / 0.15) 0%, transparent 70%);
+
+    /* Shadows */
+    --shadow-glass: 0 8px 32px hsl(0 0% 0% / 0.3);
+    --shadow-glow: 0 0 40px hsl(19 65% 67% / 0.3);
+    --shadow-elegant: 0 25px 50px -12px hsl(0 0% 0% / 0.5);
+
+    --sidebar-background: 220 65% 7%;
+    --sidebar-foreground: 30 20% 95%;
+    --sidebar-primary: 19 65% 67%;
+    --sidebar-primary-foreground: 220 65% 7%;
+    --sidebar-accent: 220 40% 15%;
+    --sidebar-accent-foreground: 30 20% 95%;
+    --sidebar-border: 220 30% 20%;
+    --sidebar-ring: 19 65% 67%;
+  }
+
+  .dark {
+    --background: 220 65% 7%;
+    --foreground: 30 20% 95%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Montserrat', sans-serif;
+    background: var(--gradient-night);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    text-shadow: 0 2px 10px hsl(0 0% 0% / 0.5);
+  }
+
+  /* Enhanced text readability over 3D backgrounds */
+  .text-readable {
+    text-shadow: 0 2px 8px hsl(0 0% 0% / 0.6), 0 4px 16px hsl(0 0% 0% / 0.4);
+  }
+
+  .text-readable-light {
+    text-shadow: 0 1px 4px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer components {
+  /* Glassmorphism Card */
+  .glass-card {
+    @apply relative overflow-hidden rounded-2xl;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: var(--shadow-glass);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-10px);
+    background: hsl(0 0% 100% / 0.08);
+    border-color: hsl(0 0% 100% / 0.15);
+    box-shadow: var(--shadow-glass), var(--shadow-glow);
+  }
+
+  /* Glass Button */
+  .glass-button {
+    @apply relative px-8 py-4 rounded-full font-medium overflow-hidden;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--glass-border));
+    transition: all 0.3s ease;
+  }
+
+  .glass-button:hover {
+    background: hsl(0 0% 100% / 0.1);
+    transform: scale(1.02);
+  }
+
+  /* Primary Button with Gradient */
+  .btn-primary {
+    @apply relative px-8 py-4 rounded-full font-semibold overflow-hidden;
+    background: var(--gradient-rose);
+    color: hsl(var(--background));
+    box-shadow: var(--shadow-glow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 60px hsl(19 65% 67% / 0.5);
+  }
+
+  /* Ken Burns Effect */
+  .ken-burns {
+    animation: kenBurns 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes kenBurns {
+    0% {
+      transform: scale(1) translate(0, 0);
+    }
+    100% {
+      transform: scale(1.1) translate(-2%, -2%);
+    }
+  }
+
+  /* Blur Masks */
+  .blur-mask-top,
+  .blur-mask-bottom {
+    @apply fixed left-0 right-0 z-40 pointer-events-none;
+    height: 100px;
+  }
+
+  .blur-mask-top {
+    top: 0;
+    background: linear-gradient(to bottom, hsl(220 65% 7% / 0.95), transparent);
+    mask-image: linear-gradient(to bottom, black 30%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent);
+  }
+
+  .blur-mask-bottom {
+    bottom: 0;
+    background: linear-gradient(to top, hsl(220 65% 7% / 0.95), transparent);
+    mask-image: linear-gradient(to top, black 30%, transparent);
+    -webkit-mask-image: linear-gradient(to top, black 30%, transparent);
+  }
+
+  /* Scroll reveal base */
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  /* Floating animation */
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Parallax section */
+  .parallax-section {
+    @apply relative overflow-hidden;
+  }
+
+  .parallax-section::before {
+    content: '';
+    @apply absolute inset-0;
+    background: var(--gradient-glow);
+    opacity: 0.5;
+  }
+
+  /* Rose gold text */
+  .text-rose-gold {
+    background: var(--gradient-rose);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 4px hsl(0 0% 0% / 0.4));
+  }
+
+  /* Text backdrop for readability over 3D */
+  .text-backdrop {
+    @apply relative;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 1rem;
+    padding: 2rem;
+  }
+
+  /* Content block with subtle blur behind text */
+  .content-readable {
+    @apply relative;
+    background: linear-gradient(135deg, hsl(220 65% 7% / 0.6) 0%, hsl(220 65% 7% / 0.4) 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 1.5rem;
+    padding: 2rem;
+  }
+
+  /* Elegant input */
+  .input-elegant {
+    @apply w-full px-6 py-4 rounded-xl bg-transparent border transition-all duration-300;
+    border-color: hsl(var(--glass-border));
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(10px);
+  }
+
+  .input-elegant:focus {
+    @apply outline-none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 20px hsl(19 65% 67% / 0.2);
+  }
+
+  /* Step indicator */
+  .step-indicator {
+    @apply flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold transition-all duration-500;
+  }
+
+  .step-indicator.active {
+    background: var(--gradient-rose);
+    color: hsl(var(--background));
+    box-shadow: var(--shadow-glow);
+  }
+
+  .step-indicator.completed {
+    @apply bg-primary/20 text-primary;
+  }
+
+  .step-indicator.inactive {
+    @apply bg-muted text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-amber-300 bg-clip-text text-transparent;
+  }
+}
+
+/* ========================================
+   ADMIN DASHBOARD - LUXE NOIR & OR
+   ======================================== */
+
+:root {
+  --admin-black: 0 0% 4%;
+  --admin-charcoal: 0 0% 8%;
+  --admin-dark: 0 0% 12%;
+  --admin-gold: 43 100% 50%;
+  --admin-gold-light: 43 100% 65%;
+}
+
+.admin-gradient {
+  background: linear-gradient(135deg, 
+    hsl(var(--admin-black)) 0%, 
+    hsl(var(--admin-charcoal)) 50%, 
+    hsl(var(--admin-black)) 100%
+  );
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  background: linear-gradient(180deg, 
+    hsl(var(--admin-charcoal)) 0%, 
+    hsl(var(--admin-black)) 100%
+  );
+  border-right: 1px solid hsl(0 0% 15%);
+}
+
+.admin-card {
+  @apply rounded-2xl;
+  background: linear-gradient(145deg, 
+    hsl(var(--admin-dark)) 0%, 
+    hsl(var(--admin-charcoal)) 100%
+  );
+  border: 1px solid hsl(0 0% 15%);
+  box-shadow: 
+    0 4px 20px hsl(0 0% 0% / 0.4),
+    inset 0 1px 0 hsl(0 0% 20% / 0.1);
+}
+
+.admin-card:hover {
+  border-color: hsl(var(--admin-gold) / 0.2);
+  box-shadow: 
+    0 8px 30px hsl(0 0% 0% / 0.5),
+    0 0 40px hsl(var(--admin-gold) / 0.05);
+}
+
+.text-admin-gold {
+  color: hsl(var(--admin-gold));
+}
+
+.bg-admin-gold {
+  background: linear-gradient(135deg, 
+    hsl(var(--admin-gold)) 0%, 
+    hsl(var(--admin-gold-light)) 100%
+  );
+}
+
+.admin-btn-primary {
+  @apply px-6 py-3 rounded-xl font-semibold transition-all duration-300;
+  background: linear-gradient(135deg, 
+    hsl(var(--admin-gold)) 0%, 
+    hsl(var(--admin-gold-light)) 100%
+  );
+  color: black;
+  box-shadow: 0 4px 20px hsl(var(--admin-gold) / 0.3);
+}
+
+.admin-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px hsl(var(--admin-gold) / 0.4);
+}
+
+.admin-btn-secondary {
+  @apply px-5 py-2.5 rounded-xl font-medium transition-all duration-300;
+  background: hsl(0 0% 15%);
+  color: hsl(0 0% 80%);
+  border: 1px solid hsl(0 0% 20%);
+}
+
+.admin-btn-secondary:hover {
+  background: hsl(0 0% 18%);
+  color: white;
+  border-color: hsl(var(--admin-gold) / 0.3);
+}
