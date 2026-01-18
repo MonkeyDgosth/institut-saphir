@@ -18,7 +18,7 @@ const Header = () => {
           {/* Logo */}
           <a href="#" className="flex items-center gap-3 group">
             <img
-              src="/saphirlogo.jpg"
+              src="/saphirlogo.png"
               alt="Saphir Logo"
               className="h-10 w-auto"
             />
