@@ -23,30 +23,34 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error("Veuillez remplir tous les champs");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
 
       if (error) {
         console.error("Erreur login:", error);
-        toast.error("Identifiants incorrects. Veuillez réessayer.");
-        setLoading(false); // On arrête le chargement en cas d'erreur
+        toast.error(error.message || "Identifiants incorrects. Veuillez réessayer.");
+        setLoading(false);
         return;
       }
 
       if (data.session) {
         toast.success("Connexion réussie ! Bienvenue.");
-        setLoading(false); // ✅ AJOUT PRO : On remet le state au propre avant de partir
-        // Redirection immédiate
         navigate("/admin-saphir", { replace: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur inattendue:", error);
-      toast.error("Une erreur est survenue. Veuillez réessayer.");
+      toast.error(error?.message || "Une erreur est survenue. Veuillez réessayer.");
       setLoading(false);
     }
   };

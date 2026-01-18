@@ -35,78 +35,64 @@ const AdminSaphir = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"dashboard" | "clients">("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
-  
   const [reservations, setReservations] = useState<ReservationWithClient[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // --- VÉRIFICATION SUPABASE (LE VRAI SYSTÈME) ---
+  // --- VÉRIFICATION SUPABASE ---
   useEffect(() => {
+    let isMounted = true;
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        // Pas connecté ? Hop, direction la porte (Login)
-        toast.error("Accès refusé. Veuillez vous connecter.");
-        navigate("/login");
-      } else {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        
+        if (!session) {
+          toast.error("Accès refusé. Veuillez vous connecter.");
+          navigate("/login", { replace: true });
+          return;
+        }
         setLoading(false);
-        console.log("✅ Authentifié - Dashboard en cours de chargement");
+      } catch (error) {
+        if (isMounted) {
+          toast.error("Erreur de vérification de session");
+          navigate("/login", { replace: true });
+        }
       }
     };
-
     checkSession();
+    return () => { isMounted = false; };
   }, [navigate]);
 
   // --- CHARGEMENT DES DONNÉES ---
   useEffect(() => {
-    if (loading) return; // Attendre que la vérification soit faite
-    console.log("🚀 Démarrage du Dashboard...");
+    if (loading) return;
     refreshAllData();
   }, [loading]);
 
-  // --- ABONNEMENT AUX CHANGEMENTS EN TEMPS RÉEL ---
+  // --- ABONNEMENT TEMPS RÉEL ---
   useEffect(() => {
-    if (loading) return; // Ne pas s'abonner tant qu'on n'a pas vérifié l'auth
-    
-    // On s'abonne aux changements en direct
+    if (loading) return;
     const channel = supabase
       .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Écoute tout : INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'reservations'
-        },
-        (payload) => {
-          // QUAND QUELQUE CHOSE CHANGE :
-          
-          // Cas A : Une mise à jour (ex: statut change)
-          if (payload.eventType === 'UPDATE') {
-            setReservations((current) => 
-              current.map((res) => 
-                res.id === payload.new.id ? { ...res, ...payload.new } : res
-              )
-            );
-          }
-          
-          // Cas B : Une nouvelle réservation arrive !
-          if (payload.eventType === 'INSERT') {
-            // On pourrait recharger toute la liste, ou l'ajouter manuellement.
-            // Le plus simple pour avoir les infos clients (jointure) est de recharger.
-            fetchReservations(); 
-            toast.info("Nouvelle réservation reçue ! 🔔");
-          }
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'reservations'
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setReservations((current) => 
+            current.map((res) => res.id === payload.new.id ? { ...res, ...payload.new } : res)
+          );
         }
-      )
+        if (payload.eventType === 'INSERT') {
+          fetchReservations();
+          toast.info("Nouvelle réservation reçue ! 🔔");
+        }
+      })
       .subscribe();
-
-    // Nettoyage quand on quitte la page
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [loading]);
 
   const refreshAllData = async () => {
@@ -114,56 +100,36 @@ const AdminSaphir = () => {
     try {
       await Promise.all([fetchReservations(), fetchClients()]);
     } catch (err: any) {
-      console.error("🔥 ERREUR FATALE:", err);
       setErrorMsg(err.message || "Erreur inconnue");
-    }
     }
   };
 
   const fetchReservations = async () => {
-    console.log("... Récupération des réservations");
     const { data, error } = await supabase
       .from("reservations")
       .select(`*, clients!fk_reservation_client_unique(*)`)
       .order("booking_date", { ascending: true });
-
-    if (error) {
-      console.error("Erreur Supabase Reservations:", error);
-      throw error;
-    }
-
+    if (error) throw error;
     const formattedData = (data as any[] || []).map(res => ({
       ...res,
       clients: Array.isArray(res.clients) ? res.clients[0] : res.clients
     })) as ReservationWithClient[];
-
-    console.log("✅ Réservations reçues:", formattedData.length);
     setReservations(formattedData);
   };
 
   const fetchClients = async () => {
-    console.log("... Récupération des clients");
     const { data, error } = await supabase.from("clients").select("*").order("total_reservations", { ascending: false });
-    
     if (error) {
-       console.error("Erreur Supabase Clients:", error);
-       // On ne bloque pas tout si les clients échouent, on met juste un tableau vide
-       setClients([]);
-       return;
+      setClients([]);
+      return;
     }
-
-    if (data) {
-      // Version simplifiée sans le count complexe pour l'instant pour éviter les bugs
-      setClients(data as Client[]);
-    }
-    console.log("✅ Clients reçus:", data?.length);
+    setClients(data as Client[]);
   };
 
-  // --- ACTIONS ---
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("reservations").update({ status }).eq("id", id);
     toast.success("Statut mis à jour");
-    fetchReservations(); // On recharge pour voir le changement
+    fetchReservations();
   };
 
   const openWhatsApp = (phone: string) => {
@@ -173,11 +139,15 @@ const AdminSaphir = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/login");
+    try {
+      await supabase.auth.signOut();
+      toast.success("Déconnexion réussie");
+      navigate("/login", { replace: true });
+    } catch (error) {
+      toast.error("Erreur lors de la déconnexion");
+    }
   };
 
-  // --- FILTRES ---
   const filteredReservations = useMemo(() => {
     return reservations.filter(r => 
       (r.client_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -192,7 +162,6 @@ const AdminSaphir = () => {
     );
   }, [clients, searchTerm]);
 
-  // --- STATS ---
   const stats = useMemo(() => {
     const confirmed = reservations.filter(r => r.status === "confirme");
     return {
@@ -202,18 +171,17 @@ const AdminSaphir = () => {
     };
   }, [reservations]);
 
-  // --- RENDU : GESTION D'ERREURS ---
   if (loading) return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-admin-gold">
       <RefreshCw className="animate-spin mb-4" size={40}/>
-      <p>Chargement des données...</p>
+      <p>Chargement...</p>
     </div>
   );
 
   if (errorMsg) return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-4">
       <AlertTriangle className="text-red-500 mb-4" size={50} />
-      <h1 className="text-2xl font-bold mb-2">Oups, une erreur est survenue</h1>
+      <h1 className="text-2xl font-bold mb-2">Erreur</h1>
       <code className="bg-red-900/30 p-4 rounded text-red-200 mb-6 max-w-lg text-center border border-red-500/30">
         {errorMsg}
       </code>
