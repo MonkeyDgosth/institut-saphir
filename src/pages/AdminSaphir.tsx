@@ -1,13 +1,13 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { format, isToday, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   User, Crown, LayoutDashboard, Users, RefreshCw, 
   Search, MessageCircle, Calendar, Check, ChevronDown, Phone, LogOut, AlertTriangle
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -40,35 +40,36 @@ const AdminSaphir = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // --- VÉRIFICATION D'AUTHENTIFICATION ---
+  // --- VÉRIFICATION SUPABASE (LE VRAI SYSTÈME) ---
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        console.log("❌ Non authentifié - Redirection vers login");
+        // Pas connecté ? Hop, direction la porte (Login)
+        toast.error("Accès refusé. Veuillez vous connecter.");
         navigate("/login");
-        return;
+      } else {
+        setLoading(false);
+        console.log("✅ Authentifié - Dashboard en cours de chargement");
       }
-      
-      console.log("✅ Authentifié");
-      setIsAuthenticated(true);
     };
-    
-    checkAuth();
+
+    checkSession();
   }, [navigate]);
 
-  // --- CHARGEMENT ---
+  // --- CHARGEMENT DES DONNÉES ---
   useEffect(() => {
-    if (!isAuthenticated) return; // Ne charger que si authentifié
+    if (loading) return; // Attendre que la vérification soit faite
     console.log("🚀 Démarrage du Dashboard...");
     refreshAllData();
-  }, [isAuthenticated]);
+  }, [loading]);
 
   // --- ABONNEMENT AUX CHANGEMENTS EN TEMPS RÉEL ---
   useEffect(() => {
+    if (loading) return; // Ne pas s'abonner tant qu'on n'a pas vérifié l'auth
+    
     // On s'abonne aux changements en direct
     const channel = supabase
       .channel('schema-db-changes')
@@ -106,18 +107,16 @@ const AdminSaphir = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loading]);
 
   const refreshAllData = async () => {
-    setLoading(true);
     setErrorMsg(null);
     try {
       await Promise.all([fetchReservations(), fetchClients()]);
     } catch (err: any) {
       console.error("🔥 ERREUR FATALE:", err);
       setErrorMsg(err.message || "Erreur inconnue");
-    } finally {
-      setLoading(false);
+    }
     }
   };
 
