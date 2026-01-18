@@ -16,7 +16,7 @@ const Login = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/admin-saphir", { replace: true });
+        navigate("/admin", { replace: true });
       }
     });
   }, [navigate]);
