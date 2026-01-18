@@ -17,21 +17,11 @@ const Header = () => {
         <div className="glass-card px-6 py-3 flex items-center justify-between">
           {/* Logo */}
           <a href="#" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-full bg-gradient-rose flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-background"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 3c-1.5 2-3 4-3 6.5C9 12 10.5 13 12 13s3-1 3-3.5c0-2.5-1.5-4.5-3-6.5zm0 0c1.5 2 3 4 3 6.5 0 2.5-1.5 3.5-3 3.5m0 0v7.5m-4.5 0h9"
-                />
-              </svg>
-            </div>
+            <img
+              src="/saphirlogo.jpg"
+              alt="Saphir Logo"
+              className="h-10 w-auto"
+            />
             <span className="font-display text-2xl tracking-wide font-semibold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>SAPHIR</span>
           </a>
 
