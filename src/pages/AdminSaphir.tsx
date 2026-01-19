@@ -1,15 +1,15 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, isToday, parseISO } from "date-fns";
+import { format, isToday, parseISO, subDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Crown, LayoutDashboard, Users, RefreshCw, 
   Search, MessageCircle, Calendar, Check, ChevronDown, Phone, LogOut, 
-  ShieldCheck, Scale, AlertTriangle, Lock, FileText,
-  TrendingUp, Wallet, CreditCard, ArrowUpRight, ArrowDownRight, Activity
+  Scale, AlertTriangle, FileText,
+  TrendingUp, Wallet, CreditCard, Activity
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -40,7 +40,6 @@ interface Client {
   total_reservations?: number;
 }
 
-// Types pour la Compta
 interface Transaction {
   id: string;
   client: string;
@@ -76,8 +75,6 @@ const StatCard = ({ label, value, subtext, icon, trend }: any) => (
     {subtext && (
        <div className="z-10 mt-auto pt-2 border-t border-white/5">
          <p className="text-xs text-gray-400 flex items-center gap-1">
-           {trend === 'up' && <ArrowUpRight size={12} className="text-green-500"/>}
-           {trend === 'down' && <ArrowDownRight size={12} className="text-red-500"/>}
            {subtext}
          </p>
        </div>
@@ -104,63 +101,138 @@ const StatusDropdown = ({ currentStatus, onUpdate }: any) => (
   </DropdownMenu>
 );
 
-// --- 3. COMPOSANT GRAPHIQUE SVG (Custom React) ---
+// --- 3. COMPOSANT GRAPHIQUE SVG (REAL DATA) ---
 
-const RevenueChart = () => {
-  // Simulation de données live
-  const [data, setData] = useState<number[]>([10, 15, 12, 18, 25, 22, 30, 28, 35, 32, 40, 38, 45, 42, 48, 40, 35, 30, 25, 28]);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setData(prev => {
-        const lastVal = prev[prev.length - 1];
-        const movement = (Math.random() - 0.5) * 15;
-        const newVal = Math.max(5, Math.min(45, lastVal + movement));
-        return [...prev.slice(1), newVal];
+const RevenueChart = ({ data }: { data: Reservation[] }) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // 1. Calculer les 7 derniers jours et le CA par jour
+  const chartData = useMemo(() => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dayRevenue = data
+        .filter(r => r.status === 'confirme' && r.booking_date && isSameDay(parseISO(r.booking_date), date))
+        .reduce((sum, r) => sum + (r.total_price || 0), 0);
+      
+      days.push({
+        date: date,
+        label: format(date, 'dd MMM', { locale: fr }),
+        value: dayRevenue
       });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    }
+    return days;
+  }, [data]);
 
+  // 2. Normalisation pour le SVG (0 à 100 en X, 0 à 100 en Y pour simplifier)
+  const maxValue = Math.max(...chartData.map(d => d.value), 10000); // Min 10000 pour éviter platitude
   const width = 100;
   const height = 50;
-  const step = width / (data.length - 1);
+  
+  // Fonction pour convertir valeur en coordonnée Y
+  const getY = (val: number) => height - (val / maxValue) * height; // Inversé car SVG Y=0 est en haut
+  const getX = (index: number) => (index / (chartData.length - 1)) * width;
 
-  const points = data.map((val, i) => `${i * step},${height - val}`).join(' ');
+  // Création du chemin SVG
+  const points = chartData.map((d, i) => `${getX(i)},${getY(d.value)}`).join(' ');
   const areaPath = `M 0,${height} ${points} L ${width},${height} Z`;
   const linePath = `M ${points.replace(/ /g, ' L ')}`;
 
   return (
-    <div className="w-full h-64 relative bg-[#0a0a0a] rounded-xl border border-white/10 overflow-hidden p-4">
-       {/* Grille de fond */}
-       <div className="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none opacity-10">
-          <div className="w-full h-px bg-white border-dashed"></div>
-          <div className="w-full h-px bg-white border-dashed"></div>
-          <div className="w-full h-px bg-white border-dashed"></div>
-          <div className="w-full h-px bg-white border-dashed"></div>
+    <div className="w-full h-80 relative bg-[#0a0a0a] rounded-xl border border-white/10 p-6 flex flex-col">
+       
+       {/* Titre Interne */}
+       <div className="flex justify-between items-end mb-4">
+         <div>
+            <p className="text-gray-400 text-xs uppercase tracking-wider font-bold">Performance Hebdomadaire</p>
+            <h4 className="text-2xl font-bold text-white font-serif mt-1">
+               {new Intl.NumberFormat('fr-FR').format(chartData.reduce((acc, curr) => acc + curr.value, 0))} <span className="text-sm text-yellow-500">FCFA</span>
+            </h4>
+         </div>
        </div>
 
-       <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 50">
-          <defs>
-             <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#eab308" stopOpacity="0.3"/>
-                <stop offset="100%" stopColor="#eab308" stopOpacity="0"/>
-             </linearGradient>
-          </defs>
-          {/* Zone remplie */}
-          <path d={areaPath} fill="url(#chartGradient)" className="transition-all duration-1000 ease-linear" />
-          {/* Ligne */}
-          <path d={linePath} fill="none" stroke="#eab308" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-1000 ease-linear" />
-          {/* Points (Dernier point) */}
-          <circle cx="100" cy={height - data[data.length -1]} r="1" fill="#fff" className="transition-all duration-1000 ease-linear animate-pulse" />
-       </svg>
+       {/* Zone Graphique */}
+       <div className="flex-1 relative w-full" onMouseLeave={() => setHoveredIndex(null)}>
+          {/* Lignes de repère (Axes Y) */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[10px] text-gray-600 font-mono">
+              <div className="w-full h-px bg-white/5 border-dashed border-white/10 flex items-center">
+                  <span className="-mt-4">{new Intl.NumberFormat('fr-FR', { notation: "compact" }).format(maxValue)}</span>
+              </div>
+              <div className="w-full h-px bg-white/5 border-dashed border-white/10 flex items-center">
+                  <span className="-mt-4">{new Intl.NumberFormat('fr-FR', { notation: "compact" }).format(maxValue / 2)}</span>
+              </div>
+              <div className="w-full h-px bg-white/5 border-dashed border-white/10 flex items-center">
+                  <span className="-mt-4">0</span>
+              </div>
+          </div>
 
-       <div className="absolute top-4 right-4 flex items-center gap-2 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-          </span>
-          <span className="text-xs font-bold text-yellow-500 uppercase">Live Flux</span>
+          <svg className="w-full h-full overflow-visible z-10 relative" preserveAspectRatio="none" viewBox="0 0 100 50">
+              <defs>
+                <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#eab308" stopOpacity="0.4"/>
+                    <stop offset="100%" stopColor="#eab308" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              
+              {/* Aire */}
+              <path d={areaPath} fill="url(#chartGradient)" />
+              
+              {/* Ligne */}
+              <path d={linePath} fill="none" stroke="#eab308" strokeWidth="0.8" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+              
+              {/* Points Interactifs */}
+              {chartData.map((point, i) => (
+                <circle 
+                    key={i}
+                    cx={getX(i)} 
+                    cy={getY(point.value)} 
+                    r="2" // Zone clickable invisible plus grande
+                    stroke="transparent"
+                    strokeWidth="10"
+                    fill="transparent"
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredIndex(i)}
+                />
+              ))}
+
+              {/* Point Survolé Visuel */}
+              {hoveredIndex !== null && (
+                 <circle 
+                    cx={getX(hoveredIndex)} 
+                    cy={getY(chartData[hoveredIndex].value)} 
+                    r="1.5" 
+                    fill="#fff" 
+                    stroke="#eab308" 
+                    strokeWidth="0.5" 
+                 />
+              )}
+          </svg>
+          
+          {/* Tooltip */}
+          {hoveredIndex !== null && (
+             <div 
+                className="absolute bg-[#1a1a1a] border border-yellow-500/30 px-3 py-2 rounded-lg shadow-xl pointer-events-none z-20"
+                style={{ 
+                    left: `${(hoveredIndex / (chartData.length - 1)) * 100}%`, 
+                    top: '10%',
+                    transform: 'translate(-50%, -100%)' 
+                }}
+             >
+                <p className="text-xs text-gray-400 mb-0.5">{chartData[hoveredIndex].label}</p>
+                <p className="text-sm font-bold text-yellow-500 whitespace-nowrap">
+                    {new Intl.NumberFormat('fr-FR').format(chartData[hoveredIndex].value)} FCFA
+                </p>
+             </div>
+          )}
+       </div>
+
+       {/* Labels Axe X (Dates) */}
+       <div className="flex justify-between mt-2 px-1">
+          {chartData.map((d, i) => (
+             <span key={i} className={`text-[10px] uppercase font-bold tracking-wider ${i === hoveredIndex ? 'text-white' : 'text-gray-600'} transition-colors`}>
+                {d.label.split(' ')[0]} {/* Juste le jour */}
+             </span>
+          ))}
        </div>
     </div>
   );
@@ -170,7 +242,6 @@ const RevenueChart = () => {
 
 const AdminSaphir = () => {
   const navigate = useNavigate();
-  // Ajout de l'onglet 'comptabilite'
   const [activeTab, setActiveTab] = useState<"dashboard" | "clients" | "comptabilite">("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -301,7 +372,7 @@ const AdminSaphir = () => {
     };
   }, [reservations]);
 
-  // Transactions factices pour la démo Compta
+  // Transactions factices pour la démo Compta (À connecter plus tard si besoin de table transactions dédiée)
   const [transactions] = useState<Transaction[]>([
     { id: 'TX-8829', client: 'Awa Diop', amount: 15000, status: 'completed', date: new Date(), method: 'OM/Momo' },
     { id: 'TX-8828', client: 'Michel K.', amount: 25000, status: 'completed', date: new Date(Date.now() - 3600000), method: 'Espèces' },
@@ -319,7 +390,7 @@ const AdminSaphir = () => {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-yellow-500/30">
       
-      {/* MODALE JURIDIQUE (Considérée comme inchangée pour la clarté, incluse ici) */}
+      {/* MODALE JURIDIQUE */}
       <AnimatePresence>
         {showPolicy && (
             <motion.div 
@@ -341,14 +412,13 @@ const AdminSaphir = () => {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-8 text-justify bg-[#0a0a0a] custom-scrollbar border-l-4 border-yellow-900/20">
-                         {/* Contenu Juridique Abrégé pour l'exemple - remettre le texte complet si besoin */}
                         <div className="prose prose-invert prose-sm max-w-none text-gray-400 space-y-6 font-light leading-relaxed font-sans text-xs md:text-sm">
                             <div className="bg-red-900/10 border border-red-900/30 p-4 rounded text-red-200 flex items-start gap-3">
                                 <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                                 <p><strong>AVERTISSEMENT LÉGAL :</strong> L'accès au portail d'administration numérique de l'Institut Saphir est strictement encadré.</p>
                             </div>
                             <p><strong>ARTICLE 1 : CONFIDENTIALITÉ.</strong> L'accès aux données financières est strictement réservé.</p>
-                            {/* ... autres articles ... */}
+                            {/* ... Texte abrégé pour l'affichage ... */}
                         </div>
                     </div>
                     <div className="p-6 border-t border-white/10 bg-[#141414] shrink-0 flex flex-col gap-4">
@@ -370,7 +440,6 @@ const AdminSaphir = () => {
         </div>
         <nav className="space-y-2">
           <MenuButton icon={<LayoutDashboard size={20}/>} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          {/* Nouveau Bouton Compta */}
           <MenuButton icon={<TrendingUp size={20}/>} label="Comptabilité" active={activeTab === 'comptabilite'} onClick={() => setActiveTab('comptabilite')} />
           <MenuButton icon={<Users size={20}/>} label="Clients" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} />
         </nav>
@@ -408,11 +477,7 @@ const AdminSaphir = () => {
                   <div className="relative group w-full md:w-80">
                       <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-xl blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
                       <div className="relative p-[1px] rounded-xl overflow-hidden bg-[#1a1a1a]">
-                          <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#00000000_50%,#eab308_100%)] opacity-0 group-hover:opacity-100 transition duration-500" />
-                          <div className="relative flex items-center bg-[#0a0a0a] rounded-xl px-3 py-2.5 z-10">
-                              <Search className="w-4 h-4 text-gray-500 mr-3 group-focus-within:text-yellow-500 transition-colors" />
-                              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-white w-full placeholder-gray-600 text-sm" />
-                          </div>
+                          <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-[#0a0a0a] border-none outline-none text-white w-full placeholder-gray-600 text-sm px-3 py-2.5 rounded-xl" />
                       </div>
                   </div>
               )}
@@ -422,31 +487,82 @@ const AdminSaphir = () => {
             </div>
           </div>
 
-          {/* CONTENU PRINCIPAL */}
+          {/* VUE COMPTABILITÉ */}
+          {activeTab === "comptabilite" && (
+            <motion.div initial={{opacity:0, scale:0.98}} animate={{opacity:1, scale:1}} className="space-y-6">
+                
+                {/* Cartes Financières */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard 
+                        label="CA Global" 
+                        value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} 
+                        icon={<Wallet size={24}/>} trend="up" subtext="Basé sur les confirmations"
+                    />
+                    <StatCard 
+                        label="Panier Moyen" 
+                        value={`${new Intl.NumberFormat('fr-FR').format(stats.avgCart)} FCFA`} 
+                        icon={<CreditCard size={24}/>} trend="neutral" subtext="Stable ce mois"
+                    />
+                    <StatCard 
+                        label="Taux d'Annulation" 
+                        value={`${stats.cancelRate.toFixed(1)}%`} 
+                        icon={<AlertTriangle size={24}/>} trend={stats.cancelRate > 15 ? 'down' : 'up'} subtext={stats.cancelRate > 15 ? "Attention requise" : "Niveau acceptable"}
+                    />
+                    <StatCard 
+                        label="Volume Commandes" 
+                        value={stats.count} 
+                        icon={<Activity size={24}/>} trend="up" subtext="Prestations réalisées"
+                    />
+                </div>
+
+                {/* Section Graphique & Répartition */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-[#111] border border-white/10 rounded-2xl p-6 shadow-xl">
+                        {/* GRAPHIQUE CONNECTÉ */}
+                        <RevenueChart data={reservations} />
+                    </div>
+
+                    <div className="bg-[#111] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                        <h3 className="text-lg font-bold text-white mb-4">Répartition</h3>
+                        <div className="space-y-4 flex-1">
+                            <div className="flex justify-between items-center p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                <span className="text-emerald-400 font-medium text-sm">Payé (Confirmé)</span>
+                                <span className="text-white font-bold">{stats.count}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                <span className="text-amber-400 font-medium text-sm">En Attente</span>
+                                <span className="text-white font-bold">{reservations.filter(r => r.status === 'en_attente').length}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                <span className="text-red-400 font-medium text-sm">Annulé / Perdu</span>
+                                <span className="text-white font-bold">{reservations.filter(r => r.status === 'annule').length}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tableau Transactions (Fictif pour l'instant) */}
+                <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-xl opacity-60 pointer-events-none grayscale">
+                    <div className="p-4 border-b border-white/5 bg-[#161616] flex justify-between">
+                        <h3 className="font-bold text-white">Flux de Trésorerie (Module en dév.)</h3>
+                    </div>
+                     <div className="p-8 text-center text-gray-500">
+                        La connexion bancaire directe sera disponible dans la version 2.2
+                     </div>
+                </div>
+
+            </motion.div>
+          )}
+
+          {/* VUE DASHBOARD (EXISTANTE) */}
           {activeTab === "dashboard" && (
             <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatCard 
-                    label="Chiffre d'Affaires" 
-                    value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} 
-                    icon={<TrendingUp size={20}/>} trend="up" subtext="+12% vs mois dernier"
-                />
-                <StatCard 
-                    label="Confirmés" 
-                    value={stats.count} 
-                    icon={<Check size={20}/>} trend="up" subtext="Haut taux de conversion"
-                />
-                <StatCard 
-                    label="RDV Aujourd'hui" 
-                    value={stats.today} 
-                    icon={<Calendar size={20}/>} trend="neutral" subtext="Planning chargé"
-                />
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatCard label="Chiffre d'Affaires" value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} icon={<TrendingUp size={20}/>} trend="up" />
+                <StatCard label="Confirmés" value={stats.count} icon={<Check size={20}/>} trend="up" />
+                <StatCard label="RDV Aujourd'hui" value={stats.today} icon={<Calendar size={20}/>} trend="neutral" />
               </div>
-              
               <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-xl shadow-black/50">
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#161616]">
-                    <h3 className="font-bold text-white flex items-center gap-2"><LayoutDashboard size={16} className="text-yellow-500"/> Réservations Récentes</h3>
-                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-white/5 text-gray-400 font-medium border-b border-white/5">
@@ -492,120 +608,13 @@ const AdminSaphir = () => {
                       ))}
                     </tbody>
                   </table>
-                  {filteredReservations.length === 0 && <div className="p-12 text-center text-gray-500">Aucune réservation trouvée.</div>}
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* VUE COMPTABILITÉ (NOUVELLE) */}
-          {activeTab === "comptabilite" && (
-            <motion.div initial={{opacity:0, scale:0.98}} animate={{opacity:1, scale:1}} className="space-y-6">
-                
-                {/* Cartes Financières */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard 
-                        label="CA Global" 
-                        value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} 
-                        icon={<Wallet size={24}/>} trend="up" subtext="Basé sur les confirmations"
-                    />
-                    <StatCard 
-                        label="Panier Moyen" 
-                        value={`${new Intl.NumberFormat('fr-FR').format(stats.avgCart)} FCFA`} 
-                        icon={<CreditCard size={24}/>} trend="neutral" subtext="Stable ce mois"
-                    />
-                    <StatCard 
-                        label="Taux d'Annulation" 
-                        value={`${stats.cancelRate.toFixed(1)}%`} 
-                        icon={<AlertTriangle size={24}/>} trend={stats.cancelRate > 15 ? 'down' : 'up'} subtext={stats.cancelRate > 15 ? "Attention requise" : "Niveau acceptable"}
-                    />
-                    <StatCard 
-                        label="Volume Commandes" 
-                        value={stats.count} 
-                        icon={<Activity size={24}/>} trend="up" subtext="Prestations réalisées"
-                    />
-                </div>
-
-                {/* Section Graphique & Répartition */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-[#111] border border-white/10 rounded-2xl p-6 shadow-xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <TrendingUp className="text-yellow-500"/> Évolution Flux (Temps Réel)
-                            </h3>
-                            <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded">Dernières 60 sec</span>
-                        </div>
-                        <RevenueChart />
-                    </div>
-
-                    <div className="bg-[#111] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                        <h3 className="text-lg font-bold text-white mb-4">Répartition</h3>
-                        <div className="space-y-4 flex-1">
-                            <div className="flex justify-between items-center p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                <span className="text-emerald-400 font-medium text-sm">Payé (Confirmé)</span>
-                                <span className="text-white font-bold">{stats.count}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                <span className="text-amber-400 font-medium text-sm">En Attente</span>
-                                <span className="text-white font-bold">{reservations.filter(r => r.status === 'en_attente').length}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                                <span className="text-red-400 font-medium text-sm">Annulé / Perdu</span>
-                                <span className="text-white font-bold">{reservations.filter(r => r.status === 'annule').length}</span>
-                            </div>
-                        </div>
-                        <button className="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-sm border border-white/10 transition">
-                            Exporter Rapport PDF
-                        </button>
-                    </div>
-                </div>
-
-                {/* Tableau Transactions */}
-                <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-                    <div className="p-4 border-b border-white/5 bg-[#161616]">
-                        <h3 className="font-bold text-white">Flux de Trésorerie Récent</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-white/5 text-gray-400 font-medium">
-                                <tr>
-                                    <th className="p-4">ID Trans.</th>
-                                    <th className="p-4">Client</th>
-                                    <th className="p-4">Montant</th>
-                                    <th className="p-4">Méthode</th>
-                                    <th className="p-4">Statut</th>
-                                    <th className="p-4 text-right">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {transactions.map((tx) => (
-                                    <tr key={tx.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="p-4 font-mono text-gray-500 text-xs">{tx.id}</td>
-                                        <td className="p-4 text-white font-medium">{tx.client}</td>
-                                        <td className="p-4 text-yellow-500 font-bold">{new Intl.NumberFormat('fr-FR').format(tx.amount)} FCFA</td>
-                                        <td className="p-4 text-gray-300">{tx.method}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-0.5 rounded text-xs border ${
-                                                tx.status === 'completed' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
-                                                tx.status === 'pending' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
-                                                'bg-red-500/10 border-red-500/30 text-red-400'
-                                            }`}>
-                                                {tx.status === 'completed' ? 'Succès' : tx.status === 'pending' ? 'En cours' : 'Échec'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right text-gray-500 text-xs">{format(tx.date, "HH:mm")}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </motion.div>
-          )}
-
-          {/* VUE CLIENTS */}
-          {activeTab === "clients" && (
+           {/* VUE CLIENTS */}
+           {activeTab === "clients" && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredClients.map((client) => (
                 <div key={client.id} className="bg-[#111] border border-white/10 rounded-2xl p-5 hover:border-yellow-600/30 transition-all group">
@@ -628,7 +637,6 @@ const AdminSaphir = () => {
                   </button>
                 </div>
               ))}
-              {filteredClients.length === 0 && <div className="col-span-full p-8 text-center text-gray-500">Aucun client trouvé.</div>}
             </motion.div>
           )}
         </div>
