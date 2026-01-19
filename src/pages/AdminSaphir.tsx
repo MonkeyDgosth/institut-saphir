@@ -2,13 +2,13 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, isToday, parseISO, subDays, isSameDay, isValid } from "date-fns";
+import { format, isToday, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-// On garde uniquement les icônes basiques garanties pour éviter les crashs
+import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Crown, LayoutDashboard, Users, RefreshCw, 
   Search, MessageCircle, Calendar, Check, ChevronDown, Phone, LogOut, 
-  CreditCard, AlertTriangle, FileText
+  ShieldCheck, Scale, AlertTriangle, Lock, FileText
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -24,10 +24,7 @@ interface Reservation {
   service_name: string | null;
   client_name: string | null;
   client_phone: string | null;
-  
-  // CORRECTION OPTION 1 : Le point d'interrogation rend ce champ optionnel
-  client_email?: string | null;
-  
+  client_email: string | null;
   status: string;
   total_price: number | null;
   clients?: {
@@ -49,31 +46,20 @@ const statusColors: Record<string, { bg: string; text: string; label: string }> 
   annule: { bg: "bg-red-500/20", text: "text-red-400", label: "Annulé" },
 };
 
-// --- 2. PETITS COMPOSANTS ---
+// --- 2. PETITS COMPOSANTS (DÉFINIS AVANT L'USAGE) ---
 
-const StatCard = ({ label, value, subtext, icon }: any) => (
-  <div className="bg-[#111] border border-white/10 p-5 rounded-2xl flex flex-col justify-between shadow-lg shadow-black/40 h-32 relative overflow-hidden">
-    <div className="flex justify-between items-start z-10">
-      <div>
-        <p className="text-gray-500 text-xs uppercase tracking-wider font-semibold mb-1">{label}</p>
-        <p className="text-2xl font-bold text-white font-serif tracking-wide">{value}</p>
-      </div>
-      <div className="p-2 rounded-lg bg-white/5 border border-white/5 text-yellow-500">
-        {icon}
-      </div>
+const StatCard = ({ label, value, icon }: any) => (
+  <div className="bg-[#111] border border-white/10 p-5 rounded-2xl flex items-center justify-between shadow-lg shadow-black/40">
+    <div>
+      <p className="text-gray-500 text-sm mb-1">{label}</p>
+      <p className="text-2xl font-bold text-white font-serif">{value}</p>
     </div>
-    {subtext && (
-       <div className="z-10 mt-auto pt-2 border-t border-white/5">
-         <p className="text-xs text-gray-400 flex items-center gap-1">
-           {subtext}
-         </p>
-       </div>
-    )}
+    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/5">{icon}</div>
   </div>
 );
 
 const MenuButton = ({ icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-gradient-to-r from-yellow-700 to-yellow-600 text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-yellow-600 text-black font-bold shadow-[0_0_15px_rgba(202,138,4,0.3)]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
     {icon} <span>{label}</span>
   </button>
 );
@@ -91,147 +77,89 @@ const StatusDropdown = ({ currentStatus, onUpdate }: any) => (
   </DropdownMenu>
 );
 
-// --- 3. GRAPHIQUE SVG ULTRA-ROBUSTE ---
-
-const RevenueChart = ({ data }: { data: Reservation[] }) => {
-  const chartData = useMemo(() => {
-    const days = [];
-    // On boucle sur les 7 derniers jours
-    for (let i = 6; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      let dayRevenue = 0;
-      
-      try {
-        if (Array.isArray(data)) {
-          dayRevenue = data
-            .filter(r => {
-               if (!r.booking_date || r.status !== 'confirme') return false;
-               try {
-                  const rDate = parseISO(r.booking_date);
-                  return isValid(rDate) && isSameDay(rDate, date);
-               } catch { return false; }
-            })
-            .reduce((sum, r) => sum + (Number(r.total_price) || 0), 0);
-        }
-      } catch (e) {
-        console.error("Erreur calcul", e);
-      }
-      
-      days.push({
-        label: format(date, 'dd', { locale: fr }),
-        value: dayRevenue
-      });
-    }
-    return days;
-  }, [data]);
-
-  // Sécurité Mathématique pour éviter Division par Zéro
-  const maxValue = Math.max(...chartData.map(d => d.value), 1); // Min 1
-  const width = 100;
-  const height = 50;
-  
-  // Fonctions de coordonnées sécurisées
-  const getY = (val: number) => {
-     const safeVal = Number.isFinite(val) ? val : 0;
-     return height - (safeVal / maxValue) * height;
-  };
-  const getX = (index: number) => {
-     return (index / (Math.max(chartData.length - 1, 1))) * width;
-  };
-
-  const points = chartData.map((d, i) => `${getX(i)},${getY(d.value)}`).join(' ');
-  const areaPath = `M 0,${height} ${points} L ${width},${height} Z`;
-  const linePath = `M ${points.replace(/ /g, ' L ')}`;
-
-  return (
-    <div className="w-full h-64 relative bg-[#0a0a0a] rounded-xl border border-white/10 p-4 flex flex-col">
-       <div className="flex justify-between items-end mb-4">
-         <div>
-            <p className="text-gray-400 text-xs uppercase font-bold">Semaine</p>
-            <h4 className="text-xl font-bold text-white font-serif mt-1">
-               {new Intl.NumberFormat('fr-FR').format(chartData.reduce((acc, curr) => acc + curr.value, 0))} <span className="text-sm text-yellow-500">FCFA</span>
-            </h4>
-         </div>
-       </div>
-
-       <div className="flex-1 relative w-full">
-          <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 50">
-              <defs>
-                <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#eab308" stopOpacity="0.4"/>
-                    <stop offset="100%" stopColor="#eab308" stopOpacity="0"/>
-                </linearGradient>
-              </defs>
-              <path d={areaPath} fill="url(#chartGradient)" />
-              <path d={linePath} fill="none" stroke="#eab308" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-              {chartData.map((point, i) => (
-                <circle 
-                    key={i} cx={getX(i)} cy={getY(point.value)} r="2" fill="#eab308"
-                />
-              ))}
-          </svg>
-       </div>
-
-       <div className="flex justify-between mt-2 px-1 text-[10px] text-gray-500 font-mono">
-          {chartData.map((d, i) => <span key={i}>{d.label}</span>)}
-       </div>
-    </div>
-  );
-}
-
-// --- 4. COMPOSANT PRINCIPAL ---
+// --- 3. COMPOSANT PRINCIPAL (ADMIN SAPHIR) ---
 
 const AdminSaphir = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "clients">("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPolicy, setShowPolicy] = useState(false);
 
-  // AUTHENTIFICATION
+  // LOGIQUE
   useEffect(() => {
     let isMounted = true;
-    const init = async () => {
+    const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
-        if (!session) { navigate("/login", { replace: true }); return; }
+        if (!session) {
+          navigate("/login", { replace: true });
+          return;
+        }
         
-        if (!localStorage.getItem("saphir_admin_cgu_v2_1")) {
+        // Vérif Contrat V2.1
+        const hasAccepted = localStorage.getItem("saphir_admin_cgu_v2_1"); 
+        if (!hasAccepted) {
             setShowPolicy(true);
         }
-        await loadData();
-      } catch (e) {
-        console.error(e);
+
+        refreshAllData();
+      } catch (error) {
+        if (isMounted) navigate("/login", { replace: true });
       }
     };
-    init();
+    checkSession();
     return () => { isMounted = false; };
   }, [navigate]);
-
-  const loadData = async () => {
-    try {
-      const { data: resData } = await supabase.from("reservations").select(`*, clients(*)`).order("created_at", { ascending: false });
-      if (resData) {
-        setReservations(resData.map(r => ({ ...r, clients: Array.isArray(r.clients) ? r.clients[0] : r.clients })));
-      }
-      const { data: cliData } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
-      if (cliData) setClients(cliData);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/login");
-  };
 
   const handleAcceptPolicy = () => {
     localStorage.setItem("saphir_admin_cgu_v2_1", "true");
     setShowPolicy(false);
+    toast.success("Contrat validé. Accès autorisé.");
+  };
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          refreshAllData();
+          if (payload.eventType === 'INSERT') toast.info("Nouvelle réservation ! 🔔");
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const refreshAllData = async () => {
+    try {
+      await Promise.all([fetchReservations(), fetchClients()]);
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+    }
+  };
+
+  const fetchReservations = async () => {
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(`*, clients(*)`)
+      .order("created_at", { ascending: false });
+    if (!error) {
+      const formattedData = (data as any[] || []).map(res => ({
+        ...res,
+        clients: Array.isArray(res.clients) ? res.clients[0] : res.clients
+      }));
+      setReservations(formattedData);
+    }
+  };
+
+  const fetchClients = async () => {
+    const { data, error } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
+    if (!error) setClients(data as Client[]);
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -239,7 +167,7 @@ const AdminSaphir = () => {
     if (error) toast.error("Erreur");
     else {
       toast.success("Statut mis à jour");
-      loadData();
+      fetchReservations();
     }
   };
 
@@ -249,159 +177,242 @@ const AdminSaphir = () => {
     window.open(`https://wa.me/${cleanPhone}`, "_blank");
   };
 
-  // CALCULS STATS SÉCURISÉS
-  const stats = useMemo(() => {
-    const safeRes = Array.isArray(reservations) ? reservations : [];
-    const confirmed = safeRes.filter(r => r.status === "confirme");
-    const cancelled = safeRes.filter(r => r.status === "annule");
-    const totalRevenue = confirmed.reduce((sum, r) => sum + (Number(r.total_price) || 0), 0);
-    const count = confirmed.length;
-    
-    return {
-      ca: totalRevenue,
-      count: count,
-      today: safeRes.filter(r => r.booking_date && isToday(parseISO(r.booking_date))).length,
-      avgCart: count > 0 ? totalRevenue / count : 0,
-      cancelRate: safeRes.length > 0 ? (cancelled.length / safeRes.length) * 100 : 0
-    };
-  }, [reservations]);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login", { replace: true });
+  };
 
-  // FILTRES
   const filteredReservations = useMemo(() => {
-     return (reservations || []).filter(r => 
-        (r.client_name || "").toLowerCase().includes(searchTerm.toLowerCase())
-     );
+    return reservations.filter(r => 
+      (r.client_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (r.client_phone || "").includes(searchTerm)
+    );
   }, [reservations, searchTerm]);
 
   const filteredClients = useMemo(() => {
-     return (clients || []).filter(c => 
-        (c.full_name || "").toLowerCase().includes(searchTerm.toLowerCase())
-     );
+    return clients.filter(c => 
+      (c.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (c.phone || "").includes(searchTerm)
+    );
   }, [clients, searchTerm]);
 
-  // RENDU DU CHARGEMENT
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-yellow-500">Chargement...</div>;
+  const stats = useMemo(() => {
+    const confirmed = reservations.filter(r => r.status === "confirme");
+    return {
+      ca: confirmed.reduce((sum, r) => sum + (r.total_price || 0), 0),
+      count: confirmed.length,
+      today: reservations.filter(r => r.booking_date && isToday(parseISO(r.booking_date))).length
+    };
+  }, [reservations]);
+
+  if (loading) return (
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-yellow-500">
+      <RefreshCw className="animate-spin mb-4" size={40}/>
+      <p className="text-white">Chargement...</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans">
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-yellow-500/30">
       
-      {/* MODALE CGU */}
-      {showPolicy && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
-            <div className="bg-[#111] border border-yellow-600/40 p-6 rounded max-w-lg w-full">
-                <h2 className="text-xl text-yellow-500 font-bold mb-4">Accès Réservé</h2>
-                <p className="text-gray-400 text-sm mb-6">L'accès à la comptabilité est soumis à confidentialité.</p>
-                <button onClick={handleAcceptPolicy} className="w-full bg-yellow-600 text-black font-bold py-3 rounded">Accepter et Entrer</button>
-            </div>
-        </div>
-      )}
+      {/* MODALE JURIDIQUE */}
+      <AnimatePresence>
+        {showPolicy && (
+            <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6"
+            >
+                <motion.div 
+                    initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+                    className="bg-[#0f0f0f] border border-yellow-600/40 rounded-sm max-w-3xl w-full shadow-[0_0_100px_rgba(202,138,4,0.15)] flex flex-col h-[85vh] md:h-[80vh]"
+                >
+                    <div className="p-6 border-b border-white/10 flex items-center gap-4 bg-[#141414] shrink-0">
+                        <div className="p-3 bg-yellow-600/10 rounded border border-yellow-600/30">
+                            <Scale className="w-8 h-8 text-yellow-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-serif text-white tracking-wide uppercase">Contrat d'Adhésion & CGU-SI</h2>
+                            <p className="text-xs text-yellow-600 uppercase tracking-widest font-bold">Document Officiel V2.1 - Institut Saphir</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-8 text-justify bg-[#0a0a0a] custom-scrollbar border-l-4 border-yellow-900/20">
+                        <div className="prose prose-invert prose-sm max-w-none text-gray-400 space-y-6 font-light leading-relaxed font-sans text-xs md:text-sm">
+                            <div className="bg-red-900/10 border border-red-900/30 p-4 rounded text-red-200 flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                                <p><strong>AVERTISSEMENT LÉGAL :</strong> L'accès au portail d'administration numérique (ci-après le « Back-Office ») de l'Institut Saphir constitue une prérogative strictement encadrée. Toute connexion à cet espace vaut acceptation pleine, entière et irrévocable des présentes conditions.</p>
+                            </div>
+                            <h3 className="text-white font-bold border-b border-white/10 pb-2 mt-6">TITRE I : DISPOSITIONS GÉNÉRALES</h3>
+                            <p><strong>ARTICLE 1 : DÉFINITIONS.</strong> 1.1. Utilisateur Habilité : Désigne exclusivement les membres de la direction ou employés accrédités. 1.2. Données Sensibles : Inclut les identités clients et chiffres d'affaires.</p>
+                            <p><strong>ARTICLE 2 : AUTHENTIFICATION.</strong> 2.1. Incessibilité : Les identifiants sont personnels et ne peuvent être prêtés. 2.2. Responsabilité pénale : L'usurpation d'identité numérique est constitutive d'une infraction pénale.</p>
+                            <p><strong>ARTICLE 3 : PROTOCOLE DE DÉCONNEXION.</strong> Il est impératif d'utiliser la fonction « Déconnexion » à l'issue de chaque session. En cas d'absence, le poste doit être verrouillé.</p>
 
-      {/* SIDEBAR */}
+                            <h3 className="text-white font-bold border-b border-white/10 pb-2 mt-6">TITRE II : PROTECTION DES DONNÉES</h3>
+                            <p><strong>ARTICLE 4 : SECRET PROFESSIONNEL.</strong> L'Utilisateur est tenu au secret professionnel le plus strict. Aucune information issue du Back-Office ne doit être divulguée à des tiers.</p>
+                            <p><strong>ARTICLE 5 : RGPD.</strong> La consultation des fiches clients n'est autorisée que pour les besoins stricts du service. Il est interdit d'annoter les fiches avec des commentaires subjectifs.</p>
+                            <p><strong>ARTICLE 6 : PROPRIÉTÉ INTELLECTUELLE.</strong> L'ensemble de l'architecture logicielle et des bases de données reste la propriété exclusive de l'Institut Saphir.</p>
+                            <p><strong>ARTICLE 7 : INTERDICTION D'EXTRACTION.</strong> Il est formellement interdit d'effectuer des captures d'écran ou d'exporter la base de données vers un support externe (clé USB, Cloud personnel).</p>
+
+                            <h3 className="text-white font-bold border-b border-white/10 pb-2 mt-6">TITRE III : SÉCURITÉ INFORMATIQUE & TECHNIQUE</h3>
+                            <p><strong>ARTICLE 8 : USAGE DES TERMINAUX.</strong> L'accès via des réseaux Wi-Fi publics est interdit sauf utilisation d'un VPN agréé. L'utilisateur garantit que son terminal est sécurisé.</p>
+                            <p className="opacity-90"><strong>ARTICLE 9 : ORIGINE DU DÉVELOPPEMENT ET LIMITATION DE GARANTIE.</strong> 9.1. L'Utilisateur reconnaît que l'architecture logicielle du présent Back-Office a été élaborée à l'aide de technologies d'intelligence artificielle générative et de processus d'automatisation algorithmique. 9.2. En raison de la nature spécifique de ce mode de développement, il est expressément convenu qu'aucune demande de remboursement, partielle ou totale, ne pourra être exigée ou honorée une fois le déploiement de la solution effectué. 9.3. La garantie de service se limite exclusivement à l'application de révisions techniques et correctifs (maintenance) nécessaires à la stabilité du système, à l'exclusion de toute refonte.</p>
+                            <p><strong>ARTICLE 10 : INTÉGRITÉ DES DONNÉES.</strong> L'Utilisateur certifie l'exactitude des montants saisis lors des encaissements. Toute manipulation visant à minorer le chiffre d'affaires constitue une faute lourde.</p>
+                            <p><strong>ARTICLE 11 : TRAÇABILITÉ (LOGS).</strong> L'Utilisateur est informé que ses actions font l'objet d'un traçage informatique. Ces enregistrements font foi en justice.</p>
+
+                            <h3 className="text-white font-bold border-b border-white/10 pb-2 mt-6">TITRE IV : SANCTIONS</h3>
+                            <p><strong>ARTICLE 15 : SUSPENSION.</strong> La Direction se réserve le droit de révoquer l'accès d'un Utilisateur sans préavis en cas de suspicion de violation des règles.</p>
+                            <p><strong>ARTICLE 16 : SANCTIONS.</strong> Le non-respect des dispositions de la présente Charte expose le contrevenant à des sanctions disciplinaires (licenciement) ainsi qu'à des poursuites pénales et civiles.</p>
+                            <p><strong>ARTICLE 17 : JURIDICTION.</strong> Tout litige relève de la compétence exclusive des tribunaux du ressort du siège social de l'Institut Saphir.</p>
+                            
+                            <div className="pt-4 text-center text-xs text-gray-600 italic">Document confidentiel - Reproduction interdite - Direction Générale Saphir</div>
+                        </div>
+                    </div>
+                    <div className="p-6 border-t border-white/10 bg-[#141414] shrink-0 flex flex-col gap-4">
+                        <div className="flex items-center gap-3 text-xs text-gray-500 bg-black/50 p-3 rounded border border-white/5">
+                            <Lock className="w-4 h-4 shrink-0 text-gray-400" />
+                            <p>En validant, je certifie avoir lu les 17 articles ci-dessus et j'engage ma responsabilité pénale et civile sur l'utilisation de cet outil.</p>
+                        </div>
+                        <button onClick={handleAcceptPolicy} className="w-full bg-gradient-to-r from-yellow-700 to-yellow-600 hover:from-yellow-600 hover:to-yellow-500 text-black font-bold py-4 rounded transition-all transform active:scale-[0.99] shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-3 uppercase tracking-wider text-sm">
+                            <FileText size={18} /> Lu et Approuvé : Accéder au Portail
+                        </button>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       <aside className="fixed left-0 top-0 h-full w-64 bg-[#111] border-r border-white/10 p-6 hidden lg:block z-50">
         <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 bg-yellow-600 rounded flex items-center justify-center"><Crown className="text-black"/></div>
-          <h1 className="text-xl font-bold text-yellow-500">SAPHIR</h1>
+          <div className="w-10 h-10 rounded-lg bg-yellow-600 flex items-center justify-center">
+            <Crown className="w-6 h-6 text-black" />
+          </div>
+          <h1 className="text-xl font-bold tracking-wider text-yellow-500">SAPHIR</h1>
         </div>
         <nav className="space-y-2">
-          <MenuButton icon={<LayoutDashboard size={20}/>} label="Tableau de Bord" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <MenuButton icon={<CreditCard size={20}/>} label="Comptabilité" active={activeTab === 'comptabilite'} onClick={() => setActiveTab('comptabilite')} />
+          <MenuButton icon={<LayoutDashboard size={20}/>} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <MenuButton icon={<Users size={20}/>} label="Clients" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} />
         </nav>
-        <button onClick={handleLogout} className="absolute bottom-6 left-6 flex gap-3 text-red-400"><LogOut/> Déconnexion</button>
+        <div className="absolute bottom-6 left-6 right-6">
+          <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-red-400 w-full transition-colors border border-transparent hover:border-red-900/30 rounded-xl">
+            <LogOut size={20} />
+            <span>Déconnexion</span>
+          </button>
+        </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="lg:ml-64 p-4 md:p-6 pb-20">
-         <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-3">
-                <div className="lg:hidden w-10 h-10 bg-yellow-600 rounded flex items-center justify-center"><Crown className="text-black w-5 h-5"/></div>
-                <h1 className="text-2xl font-bold">
-                   {activeTab === 'dashboard' && 'Tableau de Bord'}
-                   {activeTab === 'comptabilite' && 'Finance'}
-                   {activeTab === 'clients' && 'Clients'}
-                </h1>
-            </div>
-            <button onClick={() => window.location.reload()} className="bg-[#222] p-2 rounded text-yellow-500"><RefreshCw/></button>
-         </div>
-
-         {/* VUE COMPTABILITÉ */}
-         {activeTab === "comptabilite" && (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard label="CA Global" value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} icon={<CreditCard size={24}/>} />
-                    <StatCard label="Panier Moyen" value={`${new Intl.NumberFormat('fr-FR').format(stats.avgCart)} FCFA`} icon={<CreditCard size={24}/>} />
-                    <StatCard label="Taux Annulation" value={`${stats.cancelRate.toFixed(1)}%`} icon={<AlertTriangle size={24}/>} />
-                    <StatCard label="Commandes" value={stats.count} icon={<LayoutDashboard size={24}/>} />
+      <main className="lg:ml-64 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row justify-between gap-6 items-center">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="lg:hidden w-10 h-10 rounded-lg bg-yellow-600 flex items-center justify-center shrink-0">
+                    <Crown className="w-6 h-6 text-black" />
                 </div>
-                <div className="bg-[#111] border border-white/10 rounded-2xl p-6">
-                    <RevenueChart data={reservations} />
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold mb-1">{activeTab === "dashboard" ? "Tableau de Bord" : "Répertoire Clients"}</h1>
+                    <p className="text-gray-500 text-sm">Mode Administration</p>
                 </div>
             </div>
-         )}
-
-         {/* VUE DASHBOARD */}
-         {activeTab === "dashboard" && (
-            <div className="space-y-6">
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <StatCard label="Chiffre d'Affaires" value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} icon={<CreditCard size={20}/>} />
-                  <StatCard label="Confirmés" value={stats.count} icon={<Check size={20}/>} />
-                  <StatCard label="RDV Aujourd'hui" value={stats.today} icon={<Calendar size={20}/>} />
-               </div>
-               
-               {/* Recherche */}
-               <div className="bg-[#1a1a1a] rounded-xl px-4 py-3 flex items-center border border-white/10">
-                  <Search className="w-4 h-4 text-gray-500 mr-3" />
-                  <input type="text" placeholder="Rechercher client..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-white w-full text-sm" />
-               </div>
-
-               {/* Tableau simple */}
-               <div className="bg-[#111] rounded-2xl overflow-hidden border border-white/10">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-400">
-                        <thead className="bg-white/5 text-white">
-                            <tr><th className="p-4">Client</th><th className="p-4">Prestation</th><th className="p-4">Date</th><th className="p-4">Statut</th><th className="p-4 text-right">Actions</th></tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {filteredReservations.map(res => (
-                            <tr key={res.id}>
-                                <td className="p-4">
-                                    <div className="text-white font-medium">{res.client_name}</div>
-                                    <div className="text-xs">{res.client_phone}</div>
-                                </td>
-                                <td className="p-4">{res.service_name}</td>
-                                <td className="p-4">
-                                    <div>{res.booking_date ? format(parseISO(res.booking_date), "dd MMM", {locale:fr}) : "-"}</div>
-                                    <div className="text-xs">{res.booking_time}</div>
-                                </td>
-                                <td className="p-4"><span className={`px-2 py-1 rounded text-xs ${statusColors[res.status]?.text}`}>{res.status}</span></td>
-                                <td className="p-4 flex justify-end gap-2">
-                                    <button onClick={() => openWhatsApp(res.client_phone)} className="p-2 bg-green-900/20 text-green-500 rounded"><MessageCircle size={16}/></button>
-                                    <StatusDropdown currentStatus={res.status} onUpdate={(s: string) => updateStatus(res.id, s)} />
-                                </td>
-                            </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {filteredReservations.length === 0 && <div className="p-8 text-center text-gray-500">Aucune réservation trouvée.</div>}
+            <div className="flex gap-4 w-full md:w-auto items-center">
+              <div className="relative group w-full md:w-80">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-xl blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
+                  <div className="relative p-[1px] rounded-xl overflow-hidden bg-[#1a1a1a]">
+                      <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#00000000_50%,#eab308_100%)] opacity-0 group-hover:opacity-100 transition duration-500" />
+                      <div className="relative flex items-center bg-[#0a0a0a] rounded-xl px-3 py-2.5 z-10">
+                          <Search className="w-4 h-4 text-gray-500 mr-3 group-focus-within:text-yellow-500 transition-colors" />
+                          <input type="text" placeholder="Rechercher client, tél..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-white w-full placeholder-gray-600 text-sm" />
+                      </div>
                   </div>
-               </div>
+              </div>
+              <button onClick={refreshAllData} className="bg-[#1a1a1a] p-3 rounded-xl border border-white/10 hover:bg-white/5 active:scale-95 transition-all text-yellow-500 shrink-0">
+                <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+              </button>
             </div>
-         )}
+          </div>
 
-         {/* VUE CLIENTS */}
-         {activeTab === "clients" && (
+          {activeTab === "dashboard" ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatCard label="Chiffre d'Affaires" value={`${new Intl.NumberFormat('fr-FR').format(stats.ca)} FCFA`} icon={<Crown className="text-yellow-500"/>} />
+                <StatCard label="Confirmés" value={stats.count} icon={<Check className="text-emerald-400"/>} />
+                <StatCard label="RDV Aujourd'hui" value={stats.today} icon={<Calendar className="text-blue-400"/>} />
+              </div>
+              <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-xl shadow-black/50">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white/5 text-gray-400 font-medium border-b border-white/5">
+                      <tr>
+                        <th className="p-4">Client</th>
+                        <th className="p-4">Prestation</th>
+                        <th className="p-4">Date</th>
+                        <th className="p-4">Statut</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredReservations.map((res) => (
+                        <tr key={res.id} className="hover:bg-white/5 transition-colors group">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-[#222] flex items-center justify-center text-yellow-600 group-hover:text-yellow-400 transition">
+                                <User size={18}/>
+                              </div>
+                              <div>
+                                <div className="font-medium text-white">{res.client_name}</div>
+                                <div className="text-xs text-gray-500">{res.client_phone}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 text-gray-300">{res.service_name}</td>
+                          <td className="p-4">
+                            <div className="text-white">{res.booking_date ? format(parseISO(res.booking_date), "d MMM", { locale: fr }) : "-"}</div>
+                            <div className="text-xs text-gray-500">{res.booking_time}</div>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border border-white/5 ${statusColors[res.status]?.bg || 'bg-gray-500/20'} ${statusColors[res.status]?.text || 'text-gray-400'}`}>
+                              {statusColors[res.status]?.label || res.status}
+                            </span>
+                          </td>
+                          <td className="p-4 flex justify-end gap-2">
+                            <button onClick={() => openWhatsApp(res.client_phone)} className="p-2 hover:bg-green-500/20 hover:text-green-400 rounded-lg transition-colors text-gray-400 border border-transparent hover:border-green-500/30">
+                              <MessageCircle size={18} />
+                            </button>
+                            <StatusDropdown currentStatus={res.status} onUpdate={(s: string) => updateStatus(res.id, s)} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filteredReservations.length === 0 && <div className="p-12 text-center text-gray-500">Aucune réservation trouvée.</div>}
+                </div>
+              </div>
+            </>
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-               {filteredClients.map(c => (
-                  <div key={c.id} className="bg-[#111] p-5 rounded-2xl border border-white/10">
-                     <h3 className="font-bold text-white">{c.full_name}</h3>
-                     <p className="text-sm text-gray-500">{c.phone}</p>
-                     <p className="text-xs mt-2 text-yellow-500">{c.total_reservations || 0} visites</p>
-                     <button onClick={() => openWhatsApp(c.phone)} className="mt-4 w-full py-2 bg-white/5 text-gray-300 rounded text-sm hover:bg-white/10">Contacter</button>
+              {filteredClients.map((client) => (
+                <div key={client.id} className="bg-[#111] border border-white/10 rounded-2xl p-5 hover:border-yellow-600/30 transition-all group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#222] flex items-center justify-center text-gray-400 group-hover:text-yellow-500 transition">
+                        <User size={24} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-white">{client.full_name}</h3>
+                        <p className="text-sm text-gray-500 flex items-center gap-1"><Phone size={10}/> {client.phone}</p>
+                      </div>
+                    </div>
+                    <span className="bg-white/5 text-gray-300 px-2 py-1 rounded text-xs font-medium border border-white/10">
+                      {client.total_reservations || 0} visites
+                    </span>
                   </div>
-               ))}
+                  <button onClick={() => openWhatsApp(client.phone)} className="w-full bg-green-900/10 text-green-400 border border-green-900/30 py-2.5 rounded-xl text-sm font-medium hover:bg-green-900/30 transition-colors flex items-center justify-center gap-2">
+                    <MessageCircle size={16} /> WhatsApp
+                  </button>
+                </div>
+              ))}
+              {filteredClients.length === 0 && <div className="col-span-full p-8 text-center text-gray-500">Aucun client trouvé.</div>}
             </div>
-         )}
-
+          )}
+        </div>
       </main>
     </div>
   );
