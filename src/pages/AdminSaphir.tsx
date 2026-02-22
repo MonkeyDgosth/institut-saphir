@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Crown, LayoutDashboard, Users, RefreshCw, 
   Search, MessageCircle, Calendar, Check, ChevronDown, Phone, LogOut, 
-  ShieldCheck, Scale, AlertTriangle, Lock, FileText
+  Scale, AlertTriangle, Lock, FileText
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -49,12 +49,12 @@ const statusColors: Record<string, { bg: string; text: string; label: string }> 
 // --- 2. PETITS COMPOSANTS (DÉFINIS AVANT L'USAGE) ---
 
 const StatCard = ({ label, value, icon }: any) => (
-  <div className="bg-[#111] border border-white/10 p-5 rounded-2xl flex items-center justify-between shadow-lg shadow-black/40">
-    <div>
-      <p className="text-gray-500 text-sm mb-1">{label}</p>
-      <p className="text-2xl font-bold text-white font-serif">{value}</p>
+  <div className="bg-[#111] border border-white/10 p-3 md:p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between shadow-none md:shadow-lg md:shadow-black/40">
+    <div className="w-full">
+      <p className="text-gray-500 text-xs md:text-sm mb-1">{label}</p>
+      <p className="text-lg md:text-2xl font-bold text-white font-serif">{value}</p>
     </div>
-    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/5">{icon}</div>
+    <div className="w-10 md:w-12 h-10 md:h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 shrink-0 ml-auto md:ml-0">{icon}</div>
   </div>
 );
 
@@ -91,28 +91,30 @@ const AdminSaphir = () => {
   // LOGIQUE
   useEffect(() => {
     let isMounted = true;
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!isMounted) return;
-        if (!session) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        
-        // Vérif Contrat V2.1
-        const hasAccepted = localStorage.getItem("saphir_admin_cgu_v2_1"); 
-        if (!hasAccepted) {
-            setShowPolicy(true);
-        }
 
-        refreshAllData();
-      } catch (error) {
-        if (isMounted) navigate("/login", { replace: true });
+    // Écouter les changements d'authentification plutôt que faire une requête simple
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      if (!session) {
+        navigate("/login", { replace: true });
+        return;
       }
+
+      // Session établie, vérifier le contrat
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        const hasAccepted = localStorage.getItem("saphir_admin_cgu_v2_1");
+        if (!hasAccepted) {
+          setShowPolicy(true);
+        }
+        await refreshAllData();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
     };
-    checkSession();
-    return () => { isMounted = false; };
   }, [navigate]);
 
   const handleAcceptPolicy = () => {
@@ -208,7 +210,7 @@ const AdminSaphir = () => {
   if (loading) return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-yellow-500">
       <RefreshCw className="animate-spin mb-4" size={40}/>
-      <p className="text-white">Chargement...</p>
+      <p className="text-white text-base md:text-lg">Chargement...</p>
     </div>
   );
 
@@ -220,24 +222,26 @@ const AdminSaphir = () => {
         {showPolicy && (
             <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6"
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-[100] bg-black/95 md:backdrop-blur-md flex items-center justify-center p-2 md:p-6"
             >
                 <motion.div 
                     initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
-                    className="bg-[#0f0f0f] border border-yellow-600/40 rounded-sm max-w-3xl w-full shadow-[0_0_100px_rgba(202,138,4,0.15)] flex flex-col h-[85vh] md:h-[80vh]"
+                    transition={{ duration: 0.2 }}
+                    className="bg-[#0f0f0f] border border-yellow-600/40 rounded-sm max-w-3xl w-full shadow-none md:shadow-[0_0_100px_rgba(202,138,4,0.15)] flex flex-col h-[90vh] md:h-[80vh]"
                 >
-                    <div className="p-6 border-b border-white/10 flex items-center gap-4 bg-[#141414] shrink-0">
-                        <div className="p-3 bg-yellow-600/10 rounded border border-yellow-600/30">
-                            <Scale className="w-8 h-8 text-yellow-500" />
+                    <div className="p-3 md:p-6 border-b border-white/10 flex items-center gap-2 md:gap-4 bg-[#141414] shrink-0">
+                        <div className="p-2 md:p-3 bg-yellow-600/10 rounded border border-yellow-600/30">
+                            <Scale className="w-6 md:w-8 h-6 md:h-8 text-yellow-500" />
                         </div>
-                        <div>
-                            <h2 className="text-xl font-serif text-white tracking-wide uppercase">Contrat d'Adhésion & CGU-SI</h2>
-                            <p className="text-xs text-yellow-600 uppercase tracking-widest font-bold">Document Officiel V2.1 - Institut Saphir</p>
+                        <div className="min-w-0">
+                            <h2 className="text-base md:text-xl font-serif text-white tracking-wide uppercase line-clamp-2">Contrat d'Adhésion & CGU-SI</h2>
+                            <p className="text-xs text-yellow-600 uppercase tracking-widest font-bold hidden md:block">Document Officiel V2.1 - Institut Saphir</p>
                         </div>
                     </div>
                     
-                    <div className="flex-1 overflow-y-auto p-8 text-justify bg-[#0a0a0a] custom-scrollbar border-l-4 border-yellow-900/20">
-                        <div className="prose prose-invert prose-sm max-w-none text-gray-400 space-y-6 font-light leading-relaxed font-sans text-xs md:text-sm">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-8 text-justify bg-[#0a0a0a] custom-scrollbar border-l-4 border-yellow-900/20">
+                        <div className="prose prose-invert prose-sm max-w-none text-gray-400 space-y-3 md:space-y-6 font-light leading-relaxed font-sans text-xs md:text-sm">
                             <div className="bg-red-900/10 border border-red-900/30 p-4 rounded text-red-200 flex items-start gap-3">
                                 <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                                 <p><strong>AVERTISSEMENT LÉGAL :</strong> L'accès au portail d'administration numérique (ci-après le « Back-Office ») de l'Institut Saphir constitue une prérogative strictement encadrée. Toute connexion à cet espace vaut acceptation pleine, entière et irrévocable des présentes conditions.</p>
@@ -267,13 +271,13 @@ const AdminSaphir = () => {
                             <div className="pt-4 text-center text-xs text-gray-600 italic">Document confidentiel - Reproduction interdite - Direction Générale Saphir</div>
                         </div>
                     </div>
-                    <div className="p-6 border-t border-white/10 bg-[#141414] shrink-0 flex flex-col gap-4">
-                        <div className="flex items-center gap-3 text-xs text-gray-500 bg-black/50 p-3 rounded border border-white/5">
+                    <div className="p-3 md:p-6 border-t border-white/10 bg-[#141414] shrink-0 flex flex-col gap-2 md:gap-4">
+                        <div className="flex items-center gap-2 md:gap-3 text-xs text-gray-500 bg-black/50 p-2 md:p-3 rounded border border-white/5">
                             <Lock className="w-4 h-4 shrink-0 text-gray-400" />
-                            <p>En validant, je certifie avoir lu les 17 articles ci-dessus et j'engage ma responsabilité pénale et civile sur l'utilisation de cet outil.</p>
+                            <p className="line-clamp-2">En validant, j'accepte les conditions d'utilisation.</p>
                         </div>
-                        <button onClick={handleAcceptPolicy} className="w-full bg-gradient-to-r from-yellow-700 to-yellow-600 hover:from-yellow-600 hover:to-yellow-500 text-black font-bold py-4 rounded transition-all transform active:scale-[0.99] shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-3 uppercase tracking-wider text-sm">
-                            <FileText size={18} /> Lu et Approuvé : Accéder au Portail
+                        <button onClick={handleAcceptPolicy} className="w-full bg-gradient-to-r from-yellow-700 to-yellow-600 hover:from-yellow-600 hover:to-yellow-500 text-black font-bold py-2 md:py-4 rounded transition-colors flex items-center justify-center gap-2 md:gap-3 uppercase tracking-wider text-xs md:text-sm">
+                            <FileText size={16} /> Lu et Approuvé
                         </button>
                     </div>
                 </motion.div>
@@ -304,24 +308,24 @@ const AdminSaphir = () => {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex flex-col md:flex-row justify-between gap-6 items-center">
             <div className="flex items-center gap-3 w-full md:w-auto">
-                <div className="lg:hidden w-10 h-10 rounded-lg bg-yellow-600 flex items-center justify-center shrink-0">
-                    <Crown className="w-6 h-6 text-black" />
-                </div>
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold mb-1">{activeTab === "dashboard" ? "Tableau de Bord" : "Répertoire Clients"}</h1>
-                    <p className="text-gray-500 text-sm">Mode Administration</p>
-                </div>
+              <div className="lg:hidden w-10 h-10 rounded-lg bg-yellow-600 flex items-center justify-center shrink-0">
+                <Crown className="w-6 h-6 text-black" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold mb-1">{activeTab === "dashboard" ? "Tableau de Bord" : "Répertoire Clients"}</h1>
+                <p className="text-gray-500 text-sm">Mode Administration</p>
+              </div>
             </div>
             <div className="flex gap-4 w-full md:w-auto items-center">
               <div className="relative group w-full md:w-80">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-xl blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
-                  <div className="relative p-[1px] rounded-xl overflow-hidden bg-[#1a1a1a]">
-                      <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#00000000_50%,#eab308_100%)] opacity-0 group-hover:opacity-100 transition duration-500" />
-                      <div className="relative flex items-center bg-[#0a0a0a] rounded-xl px-3 py-2.5 z-10">
-                          <Search className="w-4 h-4 text-gray-500 mr-3 group-focus-within:text-yellow-500 transition-colors" />
-                          <input type="text" placeholder="Rechercher client, tél..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-white w-full placeholder-gray-600 text-sm" />
-                      </div>
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-xl blur opacity-10 md:opacity-20 group-hover:opacity-30 transition-opacity duration-300"></div>
+                <div className="relative p-[1px] rounded-xl overflow-hidden bg-[#1a1a1a]">
+                  <div className="absolute inset-[-100%] hidden md:block md:animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#00000000_50%,#eab308_100%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative flex items-center bg-[#0a0a0a] rounded-xl px-2 md:px-3 py-2 md:py-2.5 z-10">
+                    <Search className="w-4 h-4 text-gray-500 mr-3 group-focus-within:text-yellow-500 transition-colors" />
+                    <input type="text" placeholder="Rechercher client, tél..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-white w-full placeholder-gray-600 text-sm" />
                   </div>
+                </div>
               </div>
               <button onClick={refreshAllData} className="bg-[#1a1a1a] p-3 rounded-xl border border-white/10 hover:bg-white/5 active:scale-95 transition-all text-yellow-500 shrink-0">
                 <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
@@ -336,8 +340,8 @@ const AdminSaphir = () => {
                 <StatCard label="Confirmés" value={stats.count} icon={<Check className="text-emerald-400"/>} />
                 <StatCard label="RDV Aujourd'hui" value={stats.today} icon={<Calendar className="text-blue-400"/>} />
               </div>
-              <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-xl shadow-black/50">
-                <div className="overflow-x-auto">
+              <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-none md:shadow-xl md:shadow-black/50">
+                <div className="overflow-x-auto will-change-scroll">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-white/5 text-gray-400 font-medium border-b border-white/5">
                       <tr>

@@ -46,6 +46,7 @@ const Login = () => {
 
       if (data.session) {
         toast.success("Connexion réussie ! Bienvenue.");
+        // Pas de setLoading(false) ici car on va changer de page immédiatement
         navigate("/admin", { replace: true });
       }
     } catch (error: any) {

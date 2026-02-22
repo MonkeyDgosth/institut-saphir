@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Gift, Download, Sparkles } from "lucide-react";
 
 const GiftCard = () => {
@@ -8,6 +8,11 @@ const GiftCard = () => {
   const [senderName, setSenderName] = useState("");
   const [message, setMessage] = useState("");
   const [isGenerated, setIsGenerated] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
 
   const amounts = [25000, 50000, 75000, 100000, 150000];
 
@@ -37,7 +42,7 @@ const GiftCard = () => {
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: isMobile ? 0.4 : 0.8 }}
           className="text-center mb-16 relative"
         >
           {/* Backdrop for readability */}
@@ -67,7 +72,7 @@ const GiftCard = () => {
             initial={{ opacity: 0, x: -40 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: isMobile ? 0.4 : 0.8 }}
             className="glass-card p-8"
           >
             <h3 className="font-display text-2xl mb-6">Personnalisez votre carte</h3>
@@ -143,7 +148,7 @@ const GiftCard = () => {
             initial={{ opacity: 0, x: 40 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: isMobile ? 0.4 : 0.8 }}
             className="flex items-center justify-center"
           >
             <div className="relative w-full max-w-md aspect-[3/2]">
@@ -197,6 +202,7 @@ const GiftCard = () => {
                 <motion.button
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: isMobile ? 0.2 : 0.3 }}
                   onClick={downloadCard}
                   className="absolute -bottom-6 left-1/2 -translate-x-1/2 btn-primary flex items-center gap-2 text-sm py-3 px-6"
                 >

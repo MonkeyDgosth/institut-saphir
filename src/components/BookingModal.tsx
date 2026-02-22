@@ -29,6 +29,11 @@ const BookingModal = ({ service, isOpen, onClose }: BookingModalProps) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
 
   const [booking, setBooking] = useState<BookingState>({
     huile: service.options.huiles[0].id,
@@ -147,14 +152,15 @@ const BookingModal = ({ service, isOpen, onClose }: BookingModalProps) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
+          transition={{ duration: isMobile ? 0.2 : 0.3 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 md:backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: isMobile ? 0.2 : 0.4 }}
             onClick={(e) => e.stopPropagation()}
             className="glass-card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
           >
@@ -193,7 +199,7 @@ const BookingModal = ({ service, isOpen, onClose }: BookingModalProps) => {
                 
                 {/* Step 1: Customization (Ton code d'origine) */}
                 {step === 1 && (
-                  <motion.div key="step1" variants={stepVariants} initial="enter" animate="center" exit="exit" className="space-y-6">
+                  <motion.div key="step1" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: isMobile ? 0.15 : 0.3 }} className="space-y-6">
                     {/* ... (Je garde tout ton code des huiles/musiques ici sans modif) ... */}
                     {/* Pour ne pas surcharger la réponse, imagine que tes map() huiles/musique sont ici */}
                     <div>
@@ -217,7 +223,7 @@ const BookingModal = ({ service, isOpen, onClose }: BookingModalProps) => {
 
                 {/* Step 2: Date & Time (Ton code d'origine) */}
                 {step === 2 && (
-                   <motion.div key="step2" variants={stepVariants} initial="enter" animate="center" exit="exit" className="space-y-6">
+                   <motion.div key="step2" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: isMobile ? 0.15 : 0.3 }} className="space-y-6">
                       {/* ... (Je garde ta grille de dates et slots) ... */}
                       <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                         {availableDates.map((date) => (
@@ -239,7 +245,7 @@ const BookingModal = ({ service, isOpen, onClose }: BookingModalProps) => {
 
                 {/* Step 3: Contact Info */}
                 {step === 3 && (
-                  <motion.div key="step3" variants={stepVariants} initial="enter" animate="center" exit="exit" className="space-y-6">
+                  <motion.div key="step3" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: isMobile ? 0.15 : 0.3 }} className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium mb-3 flex items-center gap-2">
                         <User size={16} className="text-primary" /> Nom complet *

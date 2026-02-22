@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef, memo } from "react";
+import { useRef, memo, useEffect, useState } from "react";
 import massageImg from "@/assets/massage.jpg";
 import facialImg from "@/assets/facial.jpg";
 import hammamImg from "@/assets/hammam.jpg";
@@ -16,38 +16,47 @@ const images = [
 
 const ParallaxGallery = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start end", "end start"],
   });
 
-  const y1 = useTransform(scrollYProgress, [0, 1], [0, -100]);
-  const y2 = useTransform(scrollYProgress, [0, 1], [0, -200]);
-  const y3 = useTransform(scrollYProgress, [0, 1], [0, -50]);
+  // Disable parallax on mobile
+  const y1 = isMobile ? motion.custom(0) : useTransform(scrollYProgress, [0, 1], [0, -100]);
+  const y2 = isMobile ? motion.custom(0) : useTransform(scrollYProgress, [0, 1], [0, -200]);
+  const y3 = isMobile ? motion.custom(0) : useTransform(scrollYProgress, [0, 1], [0, -50]);
 
   return (
-    <section id="galerie" ref={containerRef} className="py-24 px-6 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[200px]" />
+    <section id="galerie" ref={containerRef} className="py-16 md:py-24 px-4 md:px-6 relative overflow-hidden">
+      {/* Background Glow - disable on mobile */}
+      {!isMobile && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[200px]" />
+      )}
 
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-16 relative"
+          transition={{ duration: isMobile ? 0.4 : 0.8 }}
+          className="text-center mb-8 md:mb-16 relative"
         >
-          {/* Backdrop for readability */}
-          <div className="absolute inset-0 -m-4 rounded-2xl bg-background/30 backdrop-blur-[3px]" />
+          {/* Backdrop for readability - simplified on mobile */}
+          <div className="absolute inset-0 -m-2 md:-m-4 rounded-2xl bg-background/30 backdrop-blur-none md:backdrop-blur-[3px]" />
           
-          <span className="inline-block px-4 py-2 text-sm font-semibold text-primary border border-primary/30 rounded-full mb-6 relative bg-background/40 backdrop-blur-sm">
+          <span className="inline-block px-4 py-2 text-xs md:text-sm font-semibold text-primary border border-primary/30 rounded-full mb-3 md:mb-6 relative bg-background/40">
             Notre Univers
           </span>
           <h2 
-            className="font-display text-4xl md:text-5xl lg:text-6xl mb-6 font-semibold text-white relative"
-            style={{ textShadow: '0 4px 16px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.4)' }}
+            className="font-display text-3xl md:text-5xl lg:text-6xl mb-3 md:mb-6 font-semibold text-white relative"
+            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
           >
             Un Havre de <span className="text-rose-gold">Paix</span>
           </h2>

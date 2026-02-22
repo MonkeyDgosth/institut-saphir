@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { memo } from "react";
+import { memo, useState, useEffect } from "react";
 import { Clock, Sparkles } from "lucide-react";
 import { Service } from "@/data/services";
 
@@ -10,6 +10,12 @@ interface ServiceCardProps {
 }
 
 const ServiceCard = ({ service, index, onClick }: ServiceCardProps) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("fr-FR").format(price);
   };
@@ -19,7 +25,7 @@ const ServiceCard = ({ service, index, onClick }: ServiceCardProps) => {
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.8, delay: index * 0.1 }}
+      transition={{ duration: isMobile ? 0.4 : 0.8, delay: index * (isMobile ? 0.05 : 0.1) }}
       className="group"
     >
       <div
@@ -31,7 +37,7 @@ const ServiceCard = ({ service, index, onClick }: ServiceCardProps) => {
           <img
             src={service.image}
             alt={service.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            className={`w-full h-full object-cover transition-transform ${isMobile ? 'duration-300' : 'duration-700'} group-hover:scale-110`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
           
@@ -46,7 +52,7 @@ const ServiceCard = ({ service, index, onClick }: ServiceCardProps) => {
           </div>
 
           {/* Price & Duration Overlay - Revealed on Hover */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+          <div className={`absolute bottom-0 left-0 right-0 p-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all ${isMobile ? 'duration-300' : 'duration-500'}`}>
             <div className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-1.5 text-foreground/80">
                 <Clock size={14} />

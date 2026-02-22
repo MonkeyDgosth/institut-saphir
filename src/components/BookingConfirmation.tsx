@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { CheckCircle, Sparkles, MessageCircle, X } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useState, useEffect } from "react";
 
 interface BookingConfirmationProps {
   isOpen: boolean;
@@ -22,6 +23,12 @@ const BookingConfirmation = ({
   booking,
   onWhatsApp,
 }: BookingConfirmationProps) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
   if (!isOpen) return null;
 
   const formatPrice = (price: number) => {
@@ -33,14 +40,15 @@ const BookingConfirmation = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/90 backdrop-blur-md"
+      transition={{ duration: isMobile ? 0.2 : 0.3 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/90 md:backdrop-blur-md"
       onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.8, y: 50 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8, y: 50 }}
-        transition={{ duration: 0.5, type: "spring" }}
+        transition={{ duration: isMobile ? 0.2 : 0.5, type: "spring" }}
         onClick={(e) => e.stopPropagation()}
         className="glass-card w-full max-w-md p-8 text-center relative overflow-hidden"
       >
@@ -61,7 +69,7 @@ const BookingConfirmation = ({
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          transition={{ delay: isMobile ? 0.05 : 0.2, type: "spring", stiffness: isMobile ? 300 : 200 }}
           className="relative mb-6"
         >
           <div className="w-24 h-24 mx-auto rounded-full bg-gradient-rose flex items-center justify-center">
@@ -70,7 +78,7 @@ const BookingConfirmation = ({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: isMobile ? 0.1 : 0.5 }}
             className="absolute -top-2 -right-2"
           >
             <Sparkles className="w-8 h-8 text-primary animate-pulse" />
@@ -81,7 +89,7 @@ const BookingConfirmation = ({
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: isMobile ? 0.05 : 0.3, duration: isMobile ? 0.3 : 0.5 }}
           className="font-display text-3xl mb-2"
           style={{ textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}
         >
@@ -91,7 +99,7 @@ const BookingConfirmation = ({
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: isMobile ? 0.1 : 0.4, duration: isMobile ? 0.2 : 0.3 }}
           className="text-muted-foreground mb-6"
         >
           Merci pour votre confiance, {booking.clientName}
@@ -101,7 +109,7 @@ const BookingConfirmation = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: isMobile ? 0.1 : 0.5, duration: isMobile ? 0.3 : 0.4 }}
           className="bg-white/5 rounded-2xl p-4 mb-6 text-left"
         >
           <div className="space-y-3 text-sm">
@@ -131,7 +139,7 @@ const BookingConfirmation = ({
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: isMobile ? 0.15 : 0.6, duration: isMobile ? 0.3 : 0.4 }}
           onClick={onWhatsApp}
           className="btn-primary w-full flex items-center justify-center gap-2 mb-4"
         >
@@ -142,7 +150,7 @@ const BookingConfirmation = ({
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
+          transition={{ delay: isMobile ? 0.2 : 0.7, duration: isMobile ? 0.2 : 0.3 }}
           className="text-xs text-muted-foreground"
         >
           Un récapitulatif vous sera envoyé par WhatsApp

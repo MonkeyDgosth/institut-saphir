@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState, memo } from "react";
+import { useState, memo, useEffect } from "react";
 import { services, categories } from "@/data/services";
 import ServiceCard from "./ServiceCard";
 import { Service } from "@/data/services";
@@ -10,6 +10,11 @@ interface ServicesSectionProps {
 
 const ServicesSection = ({ onSelectService }: ServicesSectionProps) => {
   const [activeCategory, setActiveCategory] = useState("all");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
 
   const filteredServices =
     activeCategory === "all"
@@ -28,11 +33,11 @@ const ServicesSection = ({ onSelectService }: ServicesSectionProps) => {
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: isMobile ? 0.4 : 0.8 }}
           className="text-center mb-16 relative"
         >
           {/* Backdrop for readability */}
-          <div className="absolute inset-0 -m-4 rounded-2xl bg-background/30 backdrop-blur-[3px]" />
+          <div className="absolute inset-0 -m-4 rounded-2xl bg-background/30 md:backdrop-blur-[3px]" />
           
           <span className="inline-block px-4 py-2 text-sm font-semibold text-primary border border-primary/30 rounded-full mb-6 relative bg-background/40 backdrop-blur-sm">
             Nos Prestations
@@ -57,7 +62,7 @@ const ServicesSection = ({ onSelectService }: ServicesSectionProps) => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: isMobile ? 0.3 : 0.6, delay: isMobile ? 0 : 0.2 }}
           className="flex flex-wrap justify-center gap-3 mb-12"
         >
           {categories.map((category) => (
