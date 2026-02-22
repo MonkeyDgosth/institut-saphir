@@ -46,12 +46,12 @@ const Index = () => {
     // 3. touch-pan-y : Optimise le scroll vertical sur iPhone/Android
     <div className="min-h-screen w-full relative overflow-x-hidden bg-[#050505] text-white selection:bg-[#D4AF37]/30 touch-pan-y">
       
-      {/* Spline 3D Background */}
-      {/* Astuce Pro : On cache le Spline sur les très petits mobiles si besoin de perf, 
-          sinon on le laisse en fixed pour qu'il ne bouge pas quand on scroll */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-         <SplineBackground />
-      </div>
+      {/* Spline 3D Background - Disabled on mobile to improve performance */}
+      {!isMobile && (
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <SplineBackground />
+        </div>
+      )}
       
       {/* Blur Masks (Effets de lumière) */}
       <div className="relative z-10 pointer-events-none">

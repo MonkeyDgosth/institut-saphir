@@ -376,53 +376,52 @@
    MOBILE PERFORMANCE OPTIMIZATIONS
    ======================================== */
 
-/* Reduce motion on mobile devices and devices with prefers-reduced-motion */
+/* Reduce motion on mobile devices */
 @media (max-width: 768px) {
   /* Disable heavy animations on mobile */
   .ken-burns {
-    animation: none;
+    animation: none !important;
   }
 
   .animate-glow {
-    animation: none;
+    animation: none !important;
   }
 
   .float {
-    animation: none;
+    animation: none !important;
+  }
+
+  /* Reduce transition-duration for mobile only where it matters */
+  .btn-primary:hover,
+  .glass-button:hover,
+  .glass-card:hover {
+    transition-duration: 0.1s;
   }
 
   /* Simplify glass-button on mobile */
   .glass-button {
     @apply px-6 py-3;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .glass-button:hover {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     transform: none;
   }
 
   /* Simplify btn-primary on mobile */
   .btn-primary {
     @apply px-6 py-3;
-    box-shadow: none;
   }
 
   .btn-primary:hover {
     transform: none;
-    box-shadow: none;
   }
 
-  /* Reduce shadow effects on mobile */
+  /* Reduce shadow effects on mobile but keep some */
   .shadow-lg,
   .shadow-xl {
-    box-shadow: none !important;
-  }
-
-  /* Disable blur effects on mobile */
-  body {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   }
 }
 
