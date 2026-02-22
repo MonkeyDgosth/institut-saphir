@@ -92,28 +92,49 @@ const AdminSaphir = () => {
   useEffect(() => {
     let isMounted = true;
 
-    // Écouter les changements d'authentification plutôt que faire une requête simple
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
+    const setupAdmin = async () => {
+      try {
+        // Écouter les changements d'authentification
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (!isMounted) return;
 
-      if (!session) {
-        navigate("/login", { replace: true });
-        return;
-      }
+          if (!session) {
+            navigate("/login", { replace: true });
+            setLoading(false);
+            return;
+          }
 
-      // Session établie, vérifier le contrat
-      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-        const hasAccepted = localStorage.getItem("saphir_admin_cgu_v2_1");
-        if (!hasAccepted) {
-          setShowPolicy(true);
+          // Session établie, vérifier le contrat et charger les données
+          const hasAccepted = localStorage.getItem("saphir_admin_cgu_v2_1");
+          if (!hasAccepted) {
+            setShowPolicy(true);
+          }
+
+          // Toujours charger les données quand la session existe
+          if (isMounted) {
+            await refreshAllData();
+          }
+        });
+
+        return subscription;
+      } catch (error) {
+        console.error("Auth setup error:", error);
+        if (isMounted) {
+          navigate("/login", { replace: true });
+          setLoading(false);
         }
-        await refreshAllData();
       }
+    };
+
+    setupAdmin().then((subscription) => {
+      return () => {
+        isMounted = false;
+        subscription?.unsubscribe();
+      };
     });
 
     return () => {
       isMounted = false;
-      subscription?.unsubscribe();
     };
   }, [navigate]);
 
